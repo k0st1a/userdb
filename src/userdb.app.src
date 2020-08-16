@@ -5,6 +5,7 @@
   {mod, {userdb_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    cowboy
    ]}
  ]}.
