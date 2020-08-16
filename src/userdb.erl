@@ -6,6 +6,7 @@
     start/0,
     stop/0,
     restart/0,
+    debug/0,
     lager/0,
     async/0
 ]).
@@ -14,14 +15,14 @@
 start() ->
     lager:info("Start", []),
     Result = application:ensure_all_started(userdb),
-    lager:info("Result: ~p", [Result]),
+    lager:info("Start, Result: ~p", [Result]),
     Result.
 
 -spec stop() -> ok | {error, Reason :: term()}.
 stop() ->
     lager:info("Stop", []),
     Result = application:stop(userdb),
-    lager:info("Result: ~p", [Result]),
+    lager:info("Stop, Result: ~p", [Result]),
     Result.
 
 -spec restart() -> {ok, Started :: [atom()]} | {error, Reason :: term()}.
@@ -30,14 +31,22 @@ restart() ->
     stop(),
     start().
 
--spec lager() -> {ok, Started :: [atom()]} | {error, Reason :: term()}.
+-spec debug() -> {ok, Started :: [atom()]} | {error, Reason :: term()}.
+debug() ->
+    lager:info("Debug", []),
+    lager(),
+    async().
+
+-spec lager() -> ok.
 lager() ->
+    lager:info("Lager", []),
     Result = application:ensure_all_started(lager),
     lager:info("Lager, Result: ~p", [Result]),
     ok.
 
--spec async() -> {ok, Started :: [atom()]} | {error, Reason :: term()}.
+-spec async() -> ok.
 async() ->
+    lager:info("Async", []),
     Result = application:ensure_all_started(async),
     lager:info("Async, Result: ~p", [Result]),
     ok.
