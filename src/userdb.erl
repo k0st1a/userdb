@@ -7,8 +7,7 @@
     stop/0,
     restart/0,
     debug/0,
-    lager/0,
-    async/0
+    nodebug/0
 ]).
 
 -spec start() -> {ok, Started :: [atom()]} | {error, Reason :: term()}.
@@ -37,6 +36,12 @@ debug() ->
     lager(),
     async().
 
+-spec nodebug() -> {ok, Started :: [atom()]} | {error, Reason :: term()}.
+nodebug() ->
+    lager:info("Noebug", []),
+    nolager(),
+    noasync().
+
 -spec lager() -> ok.
 lager() ->
     lager:info("Lager", []),
@@ -49,4 +54,18 @@ async() ->
     lager:info("Async", []),
     Result = application:ensure_all_started(async),
     lager:info("Async, Result: ~p", [Result]),
+    ok.
+
+-spec nolager() -> ok.
+nolager() ->
+    lager:info("Nolager", []),
+    Result = application:stop(lager),
+    lager:info("Nolager, Result: ~p", [Result]),
+    ok.
+
+-spec noasync() -> ok.
+noasync() ->
+    lager:info("Nosync", []),
+    Result = application:stop(async),
+    lager:info("Nosync, Result: ~p", [Result]),
     ok.
