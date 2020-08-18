@@ -19,23 +19,18 @@ init(Req, Opts) ->
     Decoded = decode(Body),
     lager:debug("Decoded:~n~p", [Decoded]),
     case Decoded of
-        #{<<"action">> := <<"authorization">>} ->
+        #{<<"action">> := <<"registration">>, <<"user">> := _, <<"password">> := _} ->
+            lager:debug("Action: registration", []),
+            {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed registration request\"}">>), Opts};
+        #{<<"action">> := <<"authorization">>, <<"user">> := _, <<"password">> := _} ->
             lager:debug("Action: authorization", []),
-            case Decoded of
-                %#{<<"action">> => <<"authorization">>,<<"password">> => <<"user password">>,<<"user">> => <<"it is user">>}
-                #{<<"user">> := _, <<"password">> := _} ->
-                    lager:debug("Well-formed request", []),
-                    {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed request\"}">>), Opts};
-                _ ->
-                    lager:debug("Not found user and/or password", []),
-                    {ok, reply(Req2, 400, <<"{\"description\":\"Not found user and/or password\"}">>), Opts}
-            end;
-        #{<<"action">> := _Action} ->
-            lager:debug("Bad action: ~p", [_Action]),
-            {ok, reply(Req2, 400, <<"{\"description\":\"Bad action\"}">>), Opts};
-        #{} ->
-            lager:debug("Not found action: ~p", []),
-            {ok, reply(Req2, 400, <<"{\"description\":\"Not found action\"}">>), Opts};
+            {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed authorization request\"}">>), Opts};
+        #{<<"action">> := <<"change_user_password">>, <<"user">> := _, <<"password">> := _, <<"new_password">> := _} ->
+            lager:debug("Action: change_user_password", []),
+            {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed change_user_password request\"}">>), Opts};
+        #{<<"action">> := <<"get_users_list">>} ->
+            lager:debug("Action: get_users_list", []),
+            {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed get_users_list request\"}">>), Opts};
         _ ->
             lager:debug("Bad json", []),
             {ok, reply(Req2, 400, <<"{\"description\":\"Bad json\"}">>), Opts}

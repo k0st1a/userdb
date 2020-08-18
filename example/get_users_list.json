@@ -1,0 +1,5 @@
+{
+  "action": "get_users_list",
+  "user": "it is user",
+  "password": "user password"
+}
