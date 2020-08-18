@@ -5,6 +5,7 @@
 -compile({parse_transform, lager_transform}).
 
 -include("userdb_session_manager_api.hrl").
+-include("userdb_session.hrl").
 
 %% API
 -export([
@@ -25,10 +26,6 @@
 
 -define(R2P(Record, Value), lists:zip(record_info(fields, Record), erlang:tl(erlang:tuple_to_list(Value)))).
 
--record(session, {
-    id :: non_neg_integer(),
-    user :: nonempty_string()
-}).
 -record(state, {}).
 
 %%%===================================================================
@@ -63,7 +60,7 @@ call(Msg) ->
 %% @end
 %%--------------------------------------------------------------------
 cast(Msg) ->
-    gen_server:call(?MODULE, Msg).
+    gen_server:cast(?MODULE, Msg).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -101,6 +98,7 @@ find(#session_filter{} = Filter) ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
+    lager:info("Init", []),
     ets:new(?MODULE, [
         ordered_set,
         protected,
@@ -179,6 +177,7 @@ handle_info(_Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
+    lager:info("terminate, Reason: ~p", [_Reason]),
     ok.
 
 %%--------------------------------------------------------------------

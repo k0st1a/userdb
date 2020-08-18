@@ -8,14 +8,12 @@ userdb_test_() -> [
     {
         setup,
         fun () ->
-            userdb:debug(),
             userdb:start(),
             inets:start()
         end,
         fun (_) ->
             inets:stop(),
-            userdb:stop(),
-            userdb:nodebug()
+            userdb:stop()
         end,
         [
             {"Check registration request", fun () ->
