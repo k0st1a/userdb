@@ -32,6 +32,10 @@ init([]) ->
         period => 1
     },
     ChildSpecs = [
+        #{
+            id => userdb_session_manager,
+            start => {userdb_session_manager, start_link, []}
+        }
     ],
     {ok, {SupFlags, ChildSpecs}}.
 
