@@ -1,4 +1,4 @@
--module(userdb_tests).
+-module(userdb_cowboy_handler_tests).
 
 -ifdef(TEST).
 
