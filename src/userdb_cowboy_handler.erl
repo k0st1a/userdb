@@ -1,7 +1,5 @@
 -module(userdb_cowboy_handler).
 
-%% Делаем без сессий
-
 -compile({parse_transform, lager_transform}).
 
 -export([
@@ -24,7 +22,10 @@ init(Req, Opts) ->
             {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed registration request\"}">>), Opts};
         #{<<"action">> := <<"authorization">>, <<"user">> := _, <<"password">> := _} ->
             lager:debug("Action: authorization", []),
-            {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed authorization request\"}">>), Opts};
+            Session = erlang:integer_to_binary(rand:uniform(1000000)),
+            lager:debug("Session:~p", [Session]),
+            Req3 = cowboy_req:set_resp_cookie(<<"session">>, Session, Req2),
+            {ok, reply(Req3, 200, <<"{\"description\":\"Well-formed authorization request\"}">>), Opts};
         #{<<"action">> := <<"change_user_password">>, <<"user">> := _, <<"password">> := _, <<"new_password">> := _} ->
             lager:debug("Action: change_user_password", []),
             {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed change_user_password request\"}">>), Opts};
