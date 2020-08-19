@@ -14,6 +14,7 @@
     %% Session manager API
     call/1,
     cast/1,
+    find_session/1,
     find/1,
     %% gen_server callbacks
     init/1,
@@ -65,6 +66,23 @@ cast(Msg) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Find session
+%%
+%% @spec find(Filter :: session_filter()) -> list().
+%% @end
+%%--------------------------------------------------------------------
+find_session(Id) ->
+    lager:debug("Find session, Id: ~p", [Id]),
+    Filter =
+        #session_filter{
+            id = Id,
+            user = '$1',
+            match_return = ['$1']
+        },
+    find(Filter).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Find by filter
 %%
 %% @spec find(Filter :: session_filter()) -> list().
 %% @end
@@ -202,16 +220,18 @@ try_send(_, _) ->
     false.
 
 -spec handle_msg(Msg :: session_manager_message()) -> Msg2 :: session_manager_message().
-handle_msg(#sm_msg{body = #add_session_request{} = Body}) ->
+handle_msg(#sm_msg{body = #make_session_request{} = Body}) ->
     lager:debug("handle_msg, Body: ~p", [Body]),
+    SessionId = erlang:list_to_binary(erlang:ref_to_list(erlang:make_ref())),
+    lager:debug("SessionId", [SessionId]),
     ets:insert(
         ?MODULE,
         #session{
-            id = Body#add_session_request.session_id,
-            user = Body#add_session_request.user_name
+            id = SessionId,
+            user = Body#make_session_request.user_name
         }
     ),
-    #add_session_response{};
+    #make_session_response{session_id = SessionId};
 handle_msg(_Msg) ->
     lager:warning("Unknown handle_msg, Msg:~p", [_Msg]),
     undefined.

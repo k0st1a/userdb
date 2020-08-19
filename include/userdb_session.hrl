@@ -1,5 +1,5 @@
 -record(session, {
-    id :: non_neg_integer(),
-    user :: nonempty_string()
+    id :: binary(),
+    user :: binary()
 }).
 -type session() :: session().

@@ -1,12 +1,12 @@
--record(add_session_request, {
-    session_id :: non_neg_integer(),
+-record(make_session_request, {
     user_name :: binary()
 }).
--type add_session_request() :: #add_session_request{}.
+-type make_session_request() :: #make_session_request{}.
 
--record(add_session_response, {
+-record(make_session_response, {
+    session_id :: reference()
 }).
--type add_session_response() :: #add_session_response{}.
+-type make_session_response() :: #make_session_response{}.
 
 -record(session_filter, {
     match_conditions = []  :: list(),
@@ -17,8 +17,8 @@
 -type session_filter() :: #session_filter{}.
 
 -type session_manager_message_body() ::
-    add_session_request() |
-    add_session_response().
+    make_session_request() |
+    make_session_response().
 
 -type session_manager_message_options() :: #{
     from => term(),

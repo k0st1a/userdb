@@ -16,28 +16,30 @@ userdb_session_manager_test_() -> [
             userdb:stop()
         end,
         [
-            {"Check add_session_request call", fun () ->
-                Result =
+            {"Check make_session_request call and find", fun () ->
+                Msg =
                     userdb_session_manager:call(
                         #sm_msg{
-                            body = #add_session_request{
-                                session_id = 12345,
+                            body = #make_session_request{
                                 user_name = <<"12345 user name">>
                             }
                         }
                     ),
+                ?assertMatch(
+                    #sm_msg{body=#make_session_response{}},
+                    Msg
+                ),
                 ?assertEqual(
-                    #sm_msg{body=#add_session_response{}},
-                    Result
+                    [<<"12345 user name">>],
+                    userdb_session_manager:find_session(Msg#sm_msg.body#make_session_response.session_id)
                 )
             end},
-            {"Check add_session_request cast", fun () ->
+            {"Check make_session_request cast and find", fun () ->
                 Ref = erlang:make_ref(),
                 Self = erlang:self(),
                 userdb_session_manager:cast(
                     #sm_msg{
-                        body = #add_session_request{
-                            session_id = 123456,
+                        body = #make_session_request{
                             user_name = <<"123456 user name">>
                         },
                         options = #{
@@ -47,22 +49,20 @@ userdb_session_manager_test_() -> [
                     }
                 ),
                 receive
-                    #sm_msg{body=#add_session_response{}, options = #{ref := Ref}} ->
-                        ok;
-                    Msg ->
-                        throw({msg,Msg})
-                after
-                    100 ->
-                        throw({timeout, 100})
+                    #sm_msg{body=#make_session_response{}, options = #{ref := Ref}} = Msg ->
+                        ?assertEqual(
+                            [<<"123456 user name">>],
+                            userdb_session_manager:find_session(Msg#sm_msg.body#make_session_response.session_id)
+                        )
                 end
             end},
             {"Check find", fun () ->
                 ?assertEqual(
                     [
-                        #session{id = 12345, user = <<"12345 user name">>},
-                        #session{id = 123456, user = <<"123456 user name">>}
+                        <<"12345 user name">>,
+                        <<"123456 user name">>
                     ],
-                    userdb_session_manager:find(#session_filter{})
+                    userdb_session_manager:find(#session_filter{user = '$1', match_return = ['$1']})
                 )
             end}
         ]
