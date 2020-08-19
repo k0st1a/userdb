@@ -33,8 +33,12 @@ init([]) ->
     },
     ChildSpecs = [
         #{
-            id => userdb_session_manager,
+            id => session_manager,
             start => {userdb_session_manager, start_link, []}
+        },
+        #{
+            id => mysql_manager,
+            start => {userdb_mysql_manager, start_link, []}
         }
     ],
     {ok, {SupFlags, ChildSpecs}}.
