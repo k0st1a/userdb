@@ -4,6 +4,32 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
+timeout_authorization_test_() -> [
+    {
+        setup,
+        fun () ->
+            userdb:start(),
+            inets:start(),
+            meck:new(userdb_session_manager),
+            meck:expect(userdb_session_manager, cast, fun (_) -> erlang:make_ref() end)
+        end,
+        fun (_) ->
+            meck:unload(userdb_session_manager),
+            inets:stop(),
+            userdb:stop()
+        end,
+        [
+            {"Check timeout authorization request", fun () ->
+                {ok, Data} = file:read_file("./example/authorization.json"),
+                ?assertEqual(
+                    {ok, {408, "{\"description\":\"Authorization timeout\"}"}},
+                    httpc:request(post, {"http://localhost:8080", [], "application/json", Data}, [], [{full_result, false}])
+                )
+            end}
+        ]
+    }
+].
+
 userdb_test_() -> [
     {
         setup,
