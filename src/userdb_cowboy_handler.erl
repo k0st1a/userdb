@@ -2,12 +2,27 @@
 
 -compile({parse_transform, lager_transform}).
 
+-include("userdb_session_manager_api.hrl").
+
 -export([
     %% cowboy handler callbacks
     init/2,
-   %info/3,
+    info/3,
     terminate/3
 ]).
+
+-record(state, {
+    request_ref :: reference(),
+    timer_ref :: reference()
+}).
+
+-define(TIMER_MAKE_SESSION, timer_make_session).
+-type timer_id() :: ?TIMER_MAKE_SESSION.
+
+-record(timer, {
+    id :: timer_id()
+}).
+-define(REQUEST_TIMEOUT_MAKE_SESSION, 1000).
 
 init(Req, Opts) ->
     lager:info("Init, Req:~p~nOpts:~n~p", [Req, Opts]),
@@ -20,12 +35,11 @@ init(Req, Opts) ->
         #{<<"action">> := <<"registration">>, <<"user">> := _, <<"password">> := _} ->
             lager:debug("Action: registration", []),
             {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed registration request\"}">>), Opts};
-        #{<<"action">> := <<"authorization">>, <<"user">> := _, <<"password">> := _} ->
+        #{<<"action">> := <<"authorization">>, <<"user">> := User} ->
             lager:debug("Action: authorization", []),
-            Session = erlang:integer_to_binary(rand:uniform(1000000)),
-            lager:debug("Session:~p", [Session]),
-            Req3 = cowboy_req:set_resp_cookie(<<"session">>, Session, Req2),
-            {ok, reply(Req3, 200, <<"{\"description\":\"Well-formed authorization request\"}">>), Opts};
+            RequestRef = userdb_session_manager:cast(#make_session_request{user_name = User}),
+            TimerRef = erlang:start_timer(?REQUEST_TIMEOUT_MAKE_SESSION, self(), #timer{id = ?TIMER_MAKE_SESSION}),
+            {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef}};
         #{<<"action">> := <<"change_user_password">>, <<"user">> := _, <<"password">> := _, <<"new_password">> := _} ->
             lager:debug("Action: change_user_password", []),
             {ok, reply(Req2, 200, <<"{\"description\":\"Well-formed change_user_password request\"}">>), Opts};
@@ -37,17 +51,19 @@ init(Req, Opts) ->
             {ok, reply(Req2, 400, <<"{\"description\":\"Bad json\"}">>), Opts}
     end.
 
-%   info({message, Msg}, Req, State) ->
-%       lager:info("Msg:~p~n", [Msg]),
-%       lager:info("Req:~p~n", [Req]),
-%       lager:info("State:~p~n", [State]),
-%       cowboy_req:stream_events(#{
-%           id => id(),
-%           data => Msg
-%       }, nofin, Req),
-%       %{stop, Req, State}.
-%       erlang:send_after(1000, self(), {message, "Tick"}),
-%       {ok, Req, State}.
+info(#sm_msg{body = #make_session_response{}, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
+    lager:debug("Info, Msg:~p", [Msg]),
+    Req3 = cowboy_req:set_resp_cookie(<<"session_id">>, Msg#sm_msg.body#make_session_response.session_id, Req),
+    erlang:cancel_timer(State#state.timer_ref, [{info, false}]),
+    {stop, reply(Req3, 200, <<"{\"description\":\"Success authorization\"}">>), State};
+
+info({timeout, TimerRef, #timer{id = ?TIMER_MAKE_SESSION}} = Msg, Req, #state{timer_ref = TimerRef} = State) ->
+    lager:debug("Info, Msg:~p", [Msg]),
+    {stop, reply(Req, 408, <<"{\"description\":\"Authorization timeout\"}">>), State};
+
+info(_Msg, Req, State) ->
+    lager:debug("Info, skip Msg:~p", [_Msg]),
+    {ok, Req, State}.
 
 terminate(Reason, Req, Opts) ->
     lager:info("Terminate, Reason: ~1000p, Req:~n~p~nOpts:~n~p", [Reason, Req, Opts]),

@@ -26,7 +26,7 @@ userdb_test_() -> [
             {"Check authorization request", fun () ->
                 {ok, Data} = file:read_file("./example/authorization.json"),
                 ?assertEqual(
-                    {ok, {200, "{\"description\":\"Well-formed authorization request\"}"}},
+                    {ok, {200, "{\"description\":\"Success authorization\"}"}},
                     httpc:request(post, {"http://localhost:8080", [], "application/json", Data}, [], [{full_result, false}])
                 )
             end},

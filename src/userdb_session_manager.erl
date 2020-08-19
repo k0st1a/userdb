@@ -57,11 +57,13 @@ call(Msg) ->
 %% @doc
 %% Make cast
 %%
-%% @spec cast(Msg :: session_manager_message()) -> ok.
+%% @spec cast(Body :: session_manager_request_body()) -> Ref :: reference().
 %% @end
 %%--------------------------------------------------------------------
-cast(Msg) ->
-    gen_server:cast(?MODULE, Msg).
+cast(Body) ->
+    Ref = erlang:make_ref(),
+    gen_server:cast(?MODULE, #sm_msg{body = Body, options = #{src => erlang:self(), ref => Ref}}),
+    Ref.
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -142,7 +144,7 @@ init([]) ->
 %%--------------------------------------------------------------------
 handle_call(#sm_msg{} = Msg, From, State) ->
     lager:debug("handle_call, From: ~100p, Msg:~p", [From, Msg]),
-    Result = handle_msg(Msg),
+    Result = handle_msg(Msg#sm_msg.body),
     lager:debug("Result:~p", [Result]),
     {reply, #sm_msg{body = Result}, State};
 handle_call(_Msg, _From, State) ->
@@ -161,7 +163,7 @@ handle_call(_Msg, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast(#sm_msg{} = Msg, State) ->
     lager:debug("handle_cast, Msg:~p", [Msg]),
-    Result = handle_msg(Msg),
+    Result = handle_msg(Msg#sm_msg.body),
     lager:debug("Result:~p", [Result]),
     WasSend = try_send(Msg, Result),
     lager:debug("WasSend:~p", [WasSend]),
@@ -219,8 +221,8 @@ try_send(#sm_msg{options = #{src := Src, ref := Ref}}, Body) ->
 try_send(_, _) ->
     false.
 
--spec handle_msg(Msg :: session_manager_message()) -> Msg2 :: session_manager_message().
-handle_msg(#sm_msg{body = #make_session_request{} = Body}) ->
+-spec handle_msg(Msg :: session_manager_request_body()) -> Msg2 :: session_manager_message().
+handle_msg(#make_session_request{} = Body) ->
     lager:debug("handle_msg, Body: ~p", [Body]),
     SessionId = erlang:list_to_binary(erlang:ref_to_list(erlang:make_ref())),
     lager:debug("SessionId", [SessionId]),

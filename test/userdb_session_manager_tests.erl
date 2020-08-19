@@ -35,25 +35,18 @@ userdb_session_manager_test_() -> [
                 )
             end},
             {"Check make_session_request cast and find", fun () ->
-                Ref = erlang:make_ref(),
-                Self = erlang:self(),
-                userdb_session_manager:cast(
-                    #sm_msg{
-                        body = #make_session_request{
-                            user_name = <<"123456 user name">>
-                        },
-                        options = #{
-                            src => Self,
-                            ref => Ref
-                        }
-                    }
-                ),
+                Ref = userdb_session_manager:cast(#make_session_request{user_name = <<"123456 user name">>}),
                 receive
                     #sm_msg{body=#make_session_response{}, options = #{ref := Ref}} = Msg ->
                         ?assertEqual(
                             [<<"123456 user name">>],
                             userdb_session_manager:find_session(Msg#sm_msg.body#make_session_response.session_id)
-                        )
+                        );
+                    Msg ->
+                        throw({msg, Msg})
+                after
+                    100 ->
+                        throw({timeout, 100})
                 end
             end},
             {"Check find", fun () ->
