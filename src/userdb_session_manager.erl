@@ -5,6 +5,7 @@
 -compile({parse_transform, lager_transform}).
 
 -include("userdb_session_manager_api.hrl").
+-include("userdb_msg.hrl").
 -include("userdb_session.hrl").
 
 %% API
@@ -62,7 +63,7 @@ call(Msg) ->
 %%--------------------------------------------------------------------
 cast(Body) ->
     Ref = erlang:make_ref(),
-    gen_server:cast(?MODULE, #sm_msg{body = Body, options = #{src => erlang:self(), ref => Ref}}),
+    gen_server:cast(?MODULE, #userdb_msg{body = Body, options = #{src => erlang:self(), ref => Ref}}),
     Ref.
 
 %%--------------------------------------------------------------------
@@ -142,11 +143,11 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(#sm_msg{} = Msg, From, State) ->
+handle_call(#userdb_msg{} = Msg, From, State) ->
     lager:debug("handle_call, From: ~100p, Msg:~p", [From, Msg]),
-    Result = handle_msg(Msg#sm_msg.body),
+    Result = handle_msg(Msg#userdb_msg.body),
     lager:debug("Result:~p", [Result]),
-    {reply, #sm_msg{body = Result}, State};
+    {reply, #userdb_msg{body = Result}, State};
 handle_call(_Msg, _From, State) ->
     lager:warning("Unknown handle_call, From: ~100p, Msg:~p", [_From, _Msg]),
     {reply, {error, unknown_msg}, State}.
@@ -161,9 +162,9 @@ handle_call(_Msg, _From, State) ->
 %%                                  {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_cast(#sm_msg{} = Msg, State) ->
+handle_cast(#userdb_msg{} = Msg, State) ->
     lager:debug("handle_cast, Msg:~p", [Msg]),
-    Result = handle_msg(Msg#sm_msg.body),
+    Result = handle_msg(Msg#userdb_msg.body),
     lager:debug("Result:~p", [Result]),
     WasSend = try_send(Msg, Result),
     lager:debug("WasSend:~p", [WasSend]),
@@ -214,14 +215,14 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
--spec try_send(Msg :: session_manager_message(), Body :: session_manager_message()) -> boolean().
-try_send(#sm_msg{options = #{src := Src, ref := Ref}}, Body) ->
-    erlang:send(Src, #sm_msg{body = Body, options = #{ref => Ref}}),
+-spec try_send(Msg :: userdb_message(), Body :: make_session_response()) -> boolean().
+try_send(#userdb_msg{options = #{src := Src, ref := Ref}}, Body) ->
+    erlang:send(Src, #userdb_msg{body = Body, options = #{ref => Ref}}),
     true;
 try_send(_, _) ->
     false.
 
--spec handle_msg(Msg :: session_manager_request_body()) -> Msg2 :: session_manager_message().
+-spec handle_msg(Msg :: make_session_request()) -> Msg2 :: make_session_response().
 handle_msg(#make_session_request{} = Body) ->
     lager:debug("handle_msg, Body: ~p", [Body]),
     SessionId = erlang:list_to_binary(erlang:ref_to_list(erlang:make_ref())),

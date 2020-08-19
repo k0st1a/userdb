@@ -4,6 +4,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("userdb_session_manager_api.hrl").
+-include("userdb_msg.hrl").
 -include("userdb_session.hrl").
 
 userdb_session_manager_test_() -> [
@@ -19,28 +20,28 @@ userdb_session_manager_test_() -> [
             {"Check make_session_request call and find", fun () ->
                 Msg =
                     userdb_session_manager:call(
-                        #sm_msg{
+                        #userdb_msg{
                             body = #make_session_request{
                                 user_name = <<"12345 user name">>
                             }
                         }
                     ),
                 ?assertMatch(
-                    #sm_msg{body=#make_session_response{}},
+                    #userdb_msg{body=#make_session_response{}},
                     Msg
                 ),
                 ?assertEqual(
                     [<<"12345 user name">>],
-                    userdb_session_manager:find_session(Msg#sm_msg.body#make_session_response.session_id)
+                    userdb_session_manager:find_session(Msg#userdb_msg.body#make_session_response.session_id)
                 )
             end},
             {"Check make_session_request cast and find", fun () ->
                 Ref = userdb_session_manager:cast(#make_session_request{user_name = <<"123456 user name">>}),
                 receive
-                    #sm_msg{body=#make_session_response{}, options = #{ref := Ref}} = Msg ->
+                    #userdb_msg{body=#make_session_response{}, options = #{ref := Ref}} = Msg ->
                         ?assertEqual(
                             [<<"123456 user name">>],
-                            userdb_session_manager:find_session(Msg#sm_msg.body#make_session_response.session_id)
+                            userdb_session_manager:find_session(Msg#userdb_msg.body#make_session_response.session_id)
                         );
                     Msg ->
                         throw({msg, Msg})

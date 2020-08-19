@@ -3,6 +3,7 @@
 -compile({parse_transform, lager_transform}).
 
 -include("userdb_session_manager_api.hrl").
+-include("userdb_msg.hrl").
 
 -export([
     %% cowboy handler callbacks
@@ -51,9 +52,9 @@ init(Req, Opts) ->
             {ok, reply(Req2, 400, <<"{\"description\":\"Bad json\"}">>), Opts}
     end.
 
-info(#sm_msg{body = #make_session_response{}, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
+info(#userdb_msg{body = #make_session_response{}, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
     lager:debug("Info, Msg:~p", [Msg]),
-    Req2 = cowboy_req:set_resp_cookie(<<"session_id">>, Msg#sm_msg.body#make_session_response.session_id, Req),
+    Req2 = cowboy_req:set_resp_cookie(<<"session_id">>, Msg#userdb_msg.body#make_session_response.session_id, Req),
     erlang:cancel_timer(State#state.timer_ref, [{info, false}]),
     {stop, reply(Req2, 200, <<"{\"description\":\"Success authorization\"}">>), State};
 
