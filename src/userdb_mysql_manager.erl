@@ -14,7 +14,9 @@
     code_change/3
 ]).
 
--record(state, {}).
+-record(state, {
+    mysql_pid :: pid()
+}).
 
 %%%===================================================================
 %%% API
@@ -46,7 +48,14 @@ start_link() ->
 %% @end
 %%--------------------------------------------------------------------
 init([]) ->
-    {ok, #state{}}.
+    Options = [
+        {user, "userdb"},
+        {password, "userdb"},
+        {connect_mode, lazy}
+    ],
+    {ok, Pid} = mysql:start_link(Options),
+    erlang:link(Pid),
+    {ok, #state{mysql_pid = Pid}}.
 
 %%--------------------------------------------------------------------
 %% @private
