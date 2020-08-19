@@ -53,9 +53,9 @@ init(Req, Opts) ->
 
 info(#sm_msg{body = #make_session_response{}, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
     lager:debug("Info, Msg:~p", [Msg]),
-    Req3 = cowboy_req:set_resp_cookie(<<"session_id">>, Msg#sm_msg.body#make_session_response.session_id, Req),
+    Req2 = cowboy_req:set_resp_cookie(<<"session_id">>, Msg#sm_msg.body#make_session_response.session_id, Req),
     erlang:cancel_timer(State#state.timer_ref, [{info, false}]),
-    {stop, reply(Req3, 200, <<"{\"description\":\"Success authorization\"}">>), State};
+    {stop, reply(Req2, 200, <<"{\"description\":\"Success authorization\"}">>), State};
 
 info({timeout, TimerRef, #timer{id = ?TIMER_MAKE_SESSION}} = Msg, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Msg:~p", [Msg]),

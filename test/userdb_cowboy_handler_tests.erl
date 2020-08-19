@@ -25,10 +25,11 @@ userdb_test_() -> [
             end},
             {"Check authorization request", fun () ->
                 {ok, Data} = file:read_file("./example/authorization.json"),
-                ?assertEqual(
-                    {ok, {200, "{\"description\":\"Success authorization\"}"}},
-                    httpc:request(post, {"http://localhost:8080", [], "application/json", Data}, [], [{full_result, false}])
-                )
+                {ok, Result} = httpc:request(post, {"http://localhost:8080", [], "application/json", Data}, [], []),
+                {StatusLine, Headers, Body} = Result,
+                ?assertMatch({_, 200, _}, StatusLine),
+                ?assertEqual("{\"description\":\"Success authorization\"}", Body),
+                ?assertMatch({_, "session_id=" ++ _}, lists:keyfind("set-cookie", 1, Headers))
             end},
             {"Check change_user_password request", fun () ->
                 {ok, Data} = file:read_file("./example/changer_user_password.json"),
