@@ -15,7 +15,8 @@ start(_StartType, _StartArgs) ->
     Dispatch =
         cowboy_router:compile([
             {'_', [
-                    {"/registration", userdb_cowboy_handler_registration, undefined}
+                    {"/registration", userdb_cowboy_handler_registration, undefined},
+                    {"/authorization", userdb_cowboy_handler_authorization, undefined}
             ]}
         ]),
     TransportOptions = [

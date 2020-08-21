@@ -28,8 +28,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
--include("userdb_mysql_manager_api.hrl").
--include("userdb_msg.hrl").
 
 -define(CONSOLE(Format, Args), io:format(user, "[~100p:~100p] " ++ Format, [?MODULE, ?LINE] ++ Args)).
 

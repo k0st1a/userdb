@@ -13,10 +13,8 @@
     %% API
     start_link/0,
     %% Session manager API
-    call/1,
     cast/1,
     find_session/1,
-    find/1,
     %% gen_server callbacks
     init/1,
     handle_call/3,
@@ -46,25 +44,13 @@ start_link() ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Make call
-%%
-%% @spec call(Msg :: session_manager_message()) -> session_manager_message() | {error, {unknown_msg}}.
-%% @end
-%%--------------------------------------------------------------------
-call(Msg) ->
-    gen_server:call(?MODULE, Msg).
-
-%%--------------------------------------------------------------------
-%% @doc
 %% Make cast
 %%
 %% @spec cast(Body :: session_manager_request_body()) -> Ref :: reference().
 %% @end
 %%--------------------------------------------------------------------
 cast(Body) ->
-    Ref = erlang:make_ref(),
-    gen_server:cast(?MODULE, #userdb_msg{body = Body, options = #{src => erlang:self(), ref => Ref}}),
-    Ref.
+    userdb_msg:cast(?MODULE, Body).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -134,7 +120,7 @@ init([]) ->
 %% @doc
 %% Handling call messages
 %%
-%% @spec handle_call(Msg, From, State) ->
+%% @spec handle_call(Request, From, State) ->
 %%                                   {reply, Reply, State} |
 %%                                   {reply, Reply, State, Timeout} |
 %%                                   {noreply, State} |
@@ -143,13 +129,8 @@ init([]) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
-handle_call(#userdb_msg{} = Msg, From, State) ->
-    lager:debug("handle_call, From: ~100p, Msg:~p", [From, Msg]),
-    Result = handle_msg(Msg#userdb_msg.body),
-    lager:debug("Result:~p", [Result]),
-    {reply, #userdb_msg{body = Result}, State};
 handle_call(_Msg, _From, State) ->
-    lager:warning("Unknown handle_call, From: ~100p, Msg:~p", [_From, _Msg]),
+    lager:info("Unknown handle_call, From: ~100p, Msg:~p", [_From, _Msg]),
     {reply, {error, unknown_msg}, State}.
 
 %%--------------------------------------------------------------------
@@ -164,9 +145,9 @@ handle_call(_Msg, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast(#userdb_msg{} = Msg, State) ->
     lager:debug("handle_cast, Msg:~p", [Msg]),
-    Result = handle_msg(Msg#userdb_msg.body),
+    Result = handle(Msg#userdb_msg.body),
     lager:debug("Result:~p", [Result]),
-    WasSend = try_send(Msg, Result),
+    WasSend = userdb_msg:reply(Msg, Result),
     lager:debug("WasSend:~p", [WasSend]),
     {noreply, State};
 handle_cast(_Msg, State) ->
@@ -198,7 +179,7 @@ handle_info(_Info, State) ->
 %% @end
 %%--------------------------------------------------------------------
 terminate(_Reason, _State) ->
-    lager:info("terminate, Reason: ~p", [_Reason]),
+    lager:info("Terminate, Reason: ~p", [_Reason]),
     ok.
 
 %%--------------------------------------------------------------------
@@ -215,16 +196,9 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
--spec try_send(Msg :: userdb_message(), Body :: make_session_response()) -> boolean().
-try_send(#userdb_msg{options = #{src := Src, ref := Ref}}, Body) ->
-    erlang:send(Src, #userdb_msg{body = Body, options = #{ref => Ref}}),
-    true;
-try_send(_, _) ->
-    false.
-
--spec handle_msg(Msg :: make_session_request()) -> Msg2 :: make_session_response().
-handle_msg(#make_session_request{} = Body) ->
-    lager:debug("handle_msg, Body: ~p", [Body]),
+-spec handle(Msg :: make_session_request()) -> Msg2 :: make_session_response().
+handle(#make_session_request{} = Body) ->
+    lager:debug("handle, Body: ~p", [Body]),
     SessionId = erlang:list_to_binary(erlang:ref_to_list(erlang:make_ref())),
     lager:debug("SessionId", [SessionId]),
     ets:insert(
@@ -234,7 +208,4 @@ handle_msg(#make_session_request{} = Body) ->
             user = Body#make_session_request.user_name
         }
     ),
-    #make_session_response{session_id = SessionId};
-handle_msg(_Msg) ->
-    lager:warning("Unknown handle_msg, Msg:~p", [_Msg]),
-    undefined.
+    #make_session_response{session_id = SessionId}.

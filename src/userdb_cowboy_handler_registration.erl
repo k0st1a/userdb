@@ -13,6 +13,11 @@
     terminate/3
 ]).
 
+%% External API
+-export([
+    get_user_and_password/1
+]).
+
 -record(state, {
     request_ref :: reference(),
     timer_ref :: reference()
