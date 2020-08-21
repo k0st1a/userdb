@@ -15,7 +15,8 @@
 %% Test cases
 -export([
     registration/1,
-    registration_timeout/1
+    registration_timeout/1,
+    registration_bad/1
 ]).
 
 %% For other tests
@@ -38,7 +39,8 @@
 
 all() -> [
     registration,
-    registration_timeout
+    registration_timeout,
+    registration_bad
 ].
 
 suite() ->
@@ -103,4 +105,10 @@ registration_timeout(_Config) ->
     ?assertEqual(
         {ok, {408, "{\"description\":\"Registration timeout\"}"}},
         httpc:request(post, {"http://localhost:8080/registration", [], "application/json", Data}, [], [{full_result, false}])
+    ).
+
+registration_bad(_Config) ->
+    ?assertEqual(
+        {ok, {400, "{\"description\":\"Bad registration request\"}"}},
+        httpc:request(post, {"http://localhost:8080/registration", [], "application/json", <<>>}, [], [{full_result, false}])
     ).
