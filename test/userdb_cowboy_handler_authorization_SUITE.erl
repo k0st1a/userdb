@@ -2,6 +2,9 @@
 
 -compile({parse_transform, lager_transform}).
 
+-include("userdb_session_manager_api.hrl").
+-include("userdb_session.hrl").
+
 %% API
 -export([
     all/0,
@@ -122,7 +125,25 @@ success_authorization(_Config) ->
     {StatusLine, Headers, Body} = Result,
     ?assertMatch({_, 200, _}, StatusLine),
     ?assertEqual("{\"description\":\"Success authorization\"}", Body),
-    ?assertMatch({_, "session_id=" ++ _}, lists:keyfind("set-cookie", 1, Headers)).
+    Headers2 =
+        lists:map(
+            fun ({Key, Value}) ->
+                    {unicode:characters_to_binary(Key), unicode:characters_to_binary(Value)}
+            end,
+            Headers
+        ),
+    {ok, [Cookie| _]} = cookie:deserialize(Headers2),
+    ?assertEqual(
+        <<"session_id">>,
+        cookie:name(Cookie)
+    ),
+    SessionId = cookie:value(Cookie),
+    ?assertEqual(
+        [
+            #session{id = SessionId, user = <<"it is user">>}
+        ],
+        userdb_session_manager:find(#session_filter{})
+    ).
 
 authorization_timeout(_Config) ->
     Data = <<"{\"user\":\"it is user\",\"password\":\"user password\"}">>,

@@ -39,7 +39,7 @@ info(#userdb_msg{body = #authorization_response{} = Body, options = #{ref := Ref
     userdb_timer:cancel(State#state.timer_ref),
     case Body#authorization_response.success of
         true ->
-            RequestRef = userdb_session_manager:cast(#make_session_request{user_name = user}),
+            RequestRef = userdb_session_manager:cast(#make_session_request{user_name = User}),
             TimerRef = userdb_timer:start(?TIMER_MAKE_SESSION),
             lager:debug("Cast make_session_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
             {ok, Req, State#state{request_ref = RequestRef, timer_ref = TimerRef}};

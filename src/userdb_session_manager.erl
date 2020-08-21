@@ -15,6 +15,7 @@
     %% Session manager API
     cast/1,
     find_session/1,
+    find/1,
     %% gen_server callbacks
     init/1,
     handle_call/3,
@@ -56,7 +57,7 @@ cast(Body) ->
 %% @doc
 %% Find session
 %%
-%% @spec find(Filter :: session_filter()) -> list().
+%% @spec find_session(Filter :: session_filter()) -> list().
 %% @end
 %%--------------------------------------------------------------------
 find_session(Id) ->
