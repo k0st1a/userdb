@@ -22,18 +22,14 @@ init(Req, _) ->
     lager:info("Init, Req:~p", [Req]),
     {ok, Body, Req2} = userdb_utils:read_body(Req),
     lager:debug("Body:~n~p", [Body]),
-    Decoded = userdb_utils:decode(Body),
-    case Decoded of
-        #{<<"user">> := <<User/binary>>, <<"password">> := <<Password/binary>>} when
-        ((erlang:size(User) > 0) andalso (erlang:size(User) < 26)) andalso
-        ((erlang:size(Password) > 0) andalso (erlang:size(Password) < 26)) ->
+    case get_user_and_password(Body) of
+        {ok, User, Password} ->
             RequestRef = userdb_mysql_manager:cast(#registration_request{user = User, password = Password}),
             TimerRef = userdb_timer:start(?TIMER_REGISTRATION),
             lager:debug("Cast registration_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
             {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef}};
         _ ->
-            lager:debug("Bad json, Decoded:~n~p", [Decoded]),
-            {stop, userdb_utils:reply(Req2, 400, <<"{\"description\":\"Bad json\"}">>), #state{}}
+            {stop, userdb_utils:reply(Req2, 400, <<"{\"description\":\"Bad request\"}">>), #state{}}
     end.
 
 info(#userdb_msg{body = #registration_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
@@ -57,3 +53,17 @@ info(_Msg, Req, State) ->
 terminate(_Reason, _Req, _Opts) ->
     lager:info("Terminate, Reason:~100p", [_Reason]),
     ok.
+
+%% External API
+-spec get_user_and_password(Body :: binary()) -> {ok, User :: binary(), Password :: binary} | error.
+get_user_and_password(Body) ->
+    Decoded = userdb_utils:decode(Body),
+    case Decoded of
+        #{<<"user">> := <<User/binary>>, <<"password">> := <<Password/binary>>} when
+        ((erlang:size(User) > 0) andalso (erlang:size(User) < 26)) andalso
+        ((erlang:size(Password) > 0) andalso (erlang:size(Password) < 26)) ->
+            {ok, User, Password};
+        _ ->
+            lager:debug("Bad json, Decoded:~n~p", [Decoded]),
+            error
+    end.
