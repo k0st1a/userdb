@@ -49,7 +49,7 @@ info(#userdb_msg{body = #authorization_response{} = Body, options = #{ref := Ref
     end;
 info({timeout, TimerRef, #timer{id = ?TIMER_AUTHORIZATION = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 408, <<"{\"description\":\"Authorization timeout\"}">>), State};
+    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Authorization timeout\"}">>), State};
 
 info(#userdb_msg{body = #make_session_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
     lager:debug("Info, Msg:~p", [Msg]),
@@ -58,7 +58,7 @@ info(#userdb_msg{body = #make_session_response{} = Body, options = #{ref := Ref}
     {stop, userdb_utils:reply(Req2, 200, <<"{\"description\":\"Success authorization\"}">>), State};
 info({timeout, TimerRef, #timer{id = ?TIMER_MAKE_SESSION = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 408, <<"{\"description\":\"Make session timeout\"}">>), State};
+    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Make session timeout\"}">>), State};
 
 info(_Msg, Req, State) ->
     lager:debug("Info, skip Msg:~p", [_Msg]),

@@ -137,6 +137,6 @@ unsuccess_registration(_Config) ->
 registration_timeout(_Config) ->
     Data = <<"{\"user\":\"it is user\",\"password\":\"user password\"}">>,
     ?assertEqual(
-        {ok, {408, "{\"description\":\"Registration timeout\"}"}},
+        {ok, {500, "{\"description\":\"Registration timeout\"}"}},
         httpc:request(post, {"http://localhost:8080/registration", [], "application/json", Data}, [], [{full_result, false}])
     ).

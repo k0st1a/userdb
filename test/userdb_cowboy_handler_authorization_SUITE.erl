@@ -148,13 +148,13 @@ success_authorization(_Config) ->
 authorization_timeout(_Config) ->
     Data = <<"{\"user\":\"it is user\",\"password\":\"user password\"}">>,
     ?assertEqual(
-        {ok, {408, "{\"description\":\"Authorization timeout\"}"}},
+        {ok, {500, "{\"description\":\"Authorization timeout\"}"}},
         httpc:request(post, {"http://localhost:8080/authorization", [], "application/json", Data}, [], [{full_result, false}])
     ).
 
 make_session_timeout(_Config) ->
     Data = <<"{\"user\":\"it is user\",\"password\":\"user password\"}">>,
     ?assertEqual(
-        {ok, {408, "{\"description\":\"Make session timeout\"}"}},
+        {ok, {500, "{\"description\":\"Make session timeout\"}"}},
         httpc:request(post, {"http://localhost:8080/authorization", [], "application/json", Data}, [], [{full_result, false}])
     ).

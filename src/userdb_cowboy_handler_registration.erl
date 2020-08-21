@@ -49,7 +49,7 @@ info(#userdb_msg{body = #registration_response{} = Body, options = #{ref := Ref}
     end;
 info({timeout, TimerRef, #timer{id = ?TIMER_REGISTRATION = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 408, <<"{\"description\":\"Registration timeout\"}">>), State};
+    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Registration timeout\"}">>), State};
 
 info(_Msg, Req, State) ->
     lager:debug("Info, skip Msg:~p", [_Msg]),
