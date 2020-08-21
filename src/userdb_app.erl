@@ -11,23 +11,31 @@
 ]).
 
 start(_StartType, _StartArgs) ->
-    lager:info("Start, _StartType: ~1000p, _StartArgs: ~1000p", [_StartType, _StartArgs]),
+    lager:info("Start", []),
     Dispatch =
         cowboy_router:compile([
             {'_', [
-                    {"/", userdb_cowboy_handler, []}
+                    {"/registration", userdb_cowboy_handler_registration, undefined}
             ]}
         ]),
-    {ok, _} = cowboy:start_clear(userdb_cowboy_handler, [{port, 8080}], #{env => #{dispatch => Dispatch}}),
-    userdb_sup:start_link().
+    TransportOptions = [
+        {port, 8080}
+    ],
+    ProtocolOptions = #{env => #{dispatch => Dispatch}},
+    case cowboy:start_clear(userdb_http_listener, TransportOptions, ProtocolOptions) of
+        {ok, _} ->
+            userdb_sup:start_link();
+        {error, _} = Error ->
+            Error
+    end.
 
 prep_stop(State) ->
-    lager:info("Prep stop, State: ~1000p", [State]),
-    ok = ranch:suspend_listener(userdb_cowboy_handler),
-    ok = ranch:wait_for_connections(userdb_cowboy_handler, '==', 0),
-    ok = ranch:stop_listener(userdb_cowboy_handler),
+    lager:info("Prep stop", []),
+    ok = ranch:suspend_listener(userdb_http_listener),
+    ok = ranch:wait_for_connections(userdb_http_listener, '==', 0),
+    ok = ranch:stop_listener(userdb_http_listener),
     State.
 
 stop(_State) ->
-    lager:info("Stop, _State: ~1000p", [_State]),
+    lager:info("Stop", []),
     ok.

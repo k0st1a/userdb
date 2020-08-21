@@ -38,7 +38,7 @@ init([]) ->
         },
         #{
             id => mysql_manager,
-            start => {userdb_mysql_manager, start_link, []}
+            start => {userdb_mysql_manager, start_link, [application:get_all_env(mysql)]}
         }
     ],
     {ok, {SupFlags, ChildSpecs}}.

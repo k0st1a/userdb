@@ -6,6 +6,8 @@
     start/0,
     stop/0,
     restart/0,
+    lager/0,
+    nolager/0,
     debug/0,
     nodebug/0
 ]).
