@@ -16,7 +16,8 @@ start(_StartType, _StartArgs) ->
         cowboy_router:compile([
             {'_', [
                     {"/registration", userdb_cowboy_handler_registration, undefined},
-                    {"/authorization", userdb_cowboy_handler_authorization, undefined}
+                    {"/authorization", userdb_cowboy_handler_authorization, undefined},
+                    {"/get_users_list", userdb_cowboy_handler_get_users_list, undefined}
             ]}
         ]),
     TransportOptions = [

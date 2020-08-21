@@ -186,13 +186,30 @@ handle(#authorization_request{} = Body, #state{} = State) ->
         _ ->
             #authorization_response{success = false, description = <<"Unsuccess authorization">>}
     end;
-handle(_Msg, _) ->
-    lager:warning("Unknown handle, Msg:~p", [_Msg]),
-    undefined.
+handle(#get_users_list_request{offset = Offset, limit = Limit} = _Body, #state{} = State) when
+erlang:is_integer(Offset) andalso (Offset >= 0) andalso
+erlang:is_integer(Limit) andalso (Limit > 0) andalso (Limit =< 50) ->
+    lager:debug("handle, Body: ~p", [_Body]),
+    Query = [
+        %% оптимизируем поиск https://habr.com/ru/post/217521/
+        <<"SELECT `user` FROM `user` ORDER BY `user` LIMIT ">>,
+        value(Offset), value(Limit)
+    ],
+    %io:format(user, "-------------->Query:~p<---------------------", [Query]),
+    Result = mysql:query(State#state.mysql_pid, Query),
+    %io:format(user, "-------------->Result:~p<---------------------", [Result]),
+    case Result of
+        {ok, _, [List]} ->
+            #get_users_list_response{success = true, list = List};
+        _ ->
+            #get_users_list_response{success = false, description = <<"Unsuccess get users list request">>}
+    end.
 
--spec value(Value :: binary()) -> Value2 :: binary().
+-spec value(Value :: binary() | integer()) -> Value2 :: binary().
 value(<<Value/binary>>) ->
-    <<"'", (escape(Value))/binary, "'">>.
+    <<"'", (escape(Value))/binary, "'">>;
+value(Value) when erlang:is_integer(Value) ->
+    erlang:integer_to_binary(Value).
 
 -spec escape(Value :: binary()) -> Value2 :: binary().
 escape(<<Value/binary>>) ->
