@@ -34,7 +34,7 @@ init(Req, _) ->
             lager:debug("Cast registration_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
             {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef}};
         _ ->
-            {stop, userdb_utils:reply(Req2, 400, <<"{\"description\":\"Bad registration request\"}">>), #state{}}
+            {ok, userdb_utils:reply(Req2, 400, <<"{\"description\":\"Bad registration request\"}">>), #state{}}
     end.
 
 info(#userdb_msg{body = #registration_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
