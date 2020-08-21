@@ -27,8 +27,6 @@
     drop_database/0
 ]).
 
-
--include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -define(CONSOLE(Format, Args), io:format(user, "[~100p:~100p] " ++ Format, [?MODULE, ?LINE] ++ Args)).
