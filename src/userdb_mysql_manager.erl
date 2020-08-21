@@ -190,10 +190,10 @@ handle(#get_users_list_request{offset = Offset, limit = Limit} = _Body, #state{}
 erlang:is_integer(Offset) andalso (Offset >= 0) andalso
 erlang:is_integer(Limit) andalso (Limit > 0) andalso (Limit =< 50) ->
     lager:debug("handle, Body: ~p", [_Body]),
+    %% Позже можно воспользоваться оптимизацией поиска https://habr.com/ru/post/217521/
     Query = [
-        %% оптимизируем поиск https://habr.com/ru/post/217521/
         <<"SELECT `user` FROM `user` ORDER BY `user` LIMIT ">>,
-        value(Offset), value(Limit)
+        value(Offset), <<", ">>, value(Limit)
     ],
     %io:format(user, "-------------->Query:~p<---------------------", [Query]),
     Result = mysql:query(State#state.mysql_pid, Query),
