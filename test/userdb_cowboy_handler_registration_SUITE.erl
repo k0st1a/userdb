@@ -14,9 +14,11 @@
 
 %% Test cases
 -export([
-    registration/1,
-    registration_timeout/1,
-    registration_bad/1
+    bad_registration_request/1,
+    success_registration/1,
+    user_already_registered/1,
+    unsuccess_registration/1,
+    registration_timeout/1
 ]).
 
 %% For other tests
@@ -36,9 +38,11 @@
 %%%===================================================================
 
 all() -> [
-    registration,
-    registration_timeout,
-    registration_bad
+    bad_registration_request,
+    success_registration,
+    user_already_registered,
+    unsuccess_registration,
+    registration_timeout
 ].
 
 suite() ->
@@ -56,6 +60,16 @@ end_per_suite(_Config) ->
     %userdb:nolager(),
     ok.
 
+init_per_testcase(user_already_registered, Config) ->
+    inets:start(),
+    meck:new(mysql),
+    meck:expect(mysql, query, fun (_, _) -> {error, {1062, <<>>, <<>>}} end),
+    Config;
+init_per_testcase(unsuccess_registration, Config) ->
+    inets:start(),
+    meck:new(mysql),
+    meck:expect(mysql, query, fun (_, _) -> {error, unsuccess_request} end),
+    Config;
 init_per_testcase(registration_timeout, Config) ->
     inets:start(),
     meck:new(userdb_mysql_manager),
@@ -65,6 +79,14 @@ init_per_testcase(_TestCase, Config) ->
     inets:start(),
     Config.
 
+end_per_testcase(user_already_registered, _Config) ->
+    meck:unload(mysql),
+    inets:stop(),
+    ok;
+end_per_testcase(unsuccess_registration, _Config) ->
+    meck:unload(mysql),
+    inets:stop(),
+    ok;
 end_per_testcase(registration_timeout, _Config) ->
     meck:unload(userdb_mysql_manager),
     inets:stop(),
@@ -87,14 +109,30 @@ drop_database() ->
 %%%===================================================================
 %%% Test cases
 %%%===================================================================
-registration(_Config) ->
+bad_registration_request(_Config) ->
+    ?assertEqual(
+        {ok, {400, "{\"description\":\"Bad registration request\"}"}},
+        httpc:request(post, {"http://localhost:8080/registration", [], "application/json", <<>>}, [], [{full_result, false}])
+    ).
+
+success_registration(_Config) ->
     Data = <<"{\"user\":\"it is user\",\"password\":\"user password\"}">>,
     ?assertEqual(
         {ok, {200, "{\"description\":\"Success registration\"}"}},
         httpc:request(post, {"http://localhost:8080/registration", [], "application/json", Data}, [], [{full_result, false}])
-    ),
+    ).
+
+user_already_registered(_Config) ->
+    Data = <<"{\"user\":\"it is user\",\"password\":\"user password\"}">>,
     ?assertEqual(
         {ok,{400,"{\"description\":\"User already registered\"}"}},
+        httpc:request(post, {"http://localhost:8080/registration", [], "application/json", Data}, [], [{full_result, false}])
+    ).
+
+unsuccess_registration(_Config) ->
+    Data = <<"{\"user\":\"it is user\",\"password\":\"user password\"}">>,
+    ?assertEqual(
+        {ok,{400,"{\"description\":\"Unsuccess registration\"}"}},
         httpc:request(post, {"http://localhost:8080/registration", [], "application/json", Data}, [], [{full_result, false}])
     ).
 
@@ -103,10 +141,4 @@ registration_timeout(_Config) ->
     ?assertEqual(
         {ok, {408, "{\"description\":\"Registration timeout\"}"}},
         httpc:request(post, {"http://localhost:8080/registration", [], "application/json", Data}, [], [{full_result, false}])
-    ).
-
-registration_bad(_Config) ->
-    ?assertEqual(
-        {ok, {400, "{\"description\":\"Bad registration request\"}"}},
-        httpc:request(post, {"http://localhost:8080/registration", [], "application/json", <<>>}, [], [{full_result, false}])
     ).
