@@ -20,32 +20,23 @@
 
 init(Req, _) ->
     lager:info("Init, Req:~p~n", [Req]),
-    Cookies = cowboy_req:parse_cookies(Req),
-    lager:debug("Cookies:~p", [Cookies]),
-    case lists:keyfind(<<"session_id">>, 1, Cookies) of
-        {_, SessionId} ->
-            lager:debug("SessionId:~100p", [SessionId]),
-            case userdb_session_manager:find_session(SessionId) of
-                [User| _] ->
-                    lager:debug("User:~100p", [User]),
-                    {ok, Body, Req2} = userdb_utils:read_body(Req),
-                    lager:debug("Body:~n~p", [Body]),
-                    case get_parameters(Body) of
-                        #{offset := Offset, limit := Limit} ->
-                            RequestRef = userdb_mysql_manager:cast(#get_users_list_request{offset = Offset, limit = Limit}),
-                            TimerRef = userdb_timer:start(?TIMER_GET_USERS_LIST),
-                            lager:debug("Cast get_user_list_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
-                            {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef}};
-                        _ ->
-                            {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"Bad offset or limit\"}">>), #state{}}
-                    end;
+    case userdb_utils:find_session(Req) of
+        {ok, User} ->
+            lager:debug("User:~100p", [User]),
+            {ok, Body, Req2} = userdb_utils:read_body(Req),
+            lager:debug("Body:~n~p", [Body]),
+            case read_parameters(Body) of
+                #{offset := Offset, limit := Limit} ->
+                    RequestRef = userdb_mysql_manager:cast(#get_users_list_request{offset = Offset, limit = Limit}),
+                    TimerRef = userdb_timer:start(?TIMER_GET_USERS_LIST),
+                    lager:debug("Cast get_user_list_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
+                    {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef}};
                 _ ->
-                    lager:debug("Unauthorized", []),
-                    {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"Unauthorized\"}">>), #state{}}
+                    {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"Bad offset or limit\"}">>), #state{}}
             end;
-        _ ->
-            lager:debug("Not found session_id", []),
-            {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"Not found session_id in cookie\"}">>), #state{}}
+        {error, Description} ->
+            lager:debug("Description:~p", [Description]),
+            {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"", Description/binary, "\"}">>), #state{}}
     end.
 
 info(#userdb_msg{body = #get_users_list_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
@@ -72,22 +63,19 @@ terminate(_Reason, _Req, _Opts) ->
     ok.
 
 %% Internal API
--spec get_parameters(Body :: binary()) -> {ok, User :: binary(), Password :: binary} | error.
-get_parameters(Body) ->
+-spec read_parameters(Body :: binary()) -> Parameters :: map() | error.
+read_parameters(Body) ->
     Decoded = userdb_utils:decode(Body),
-    case userdb_utils:decode(Body) of
-        #{} = Decoded ->
+    case Decoded of
+        #{} ->
             Offset = maps:get(<<"offset">>, Decoded, 0),
             lager:debug("Offset:~p", [Offset]),
             Limit = maps:get(<<"limit">>, Decoded, 50),
             lager:debug("Limit:~p", [Limit]),
-            if
-                erlang:is_integer(Offset) andalso
-                (Offset >= 0) andalso
-                erlang:is_integer(Limit) andalso
-                (Limit > 0) andalso (Limit =< 50) ->
-                    #{offset => Offset, limit => Limit};
+            case userdb_utils:check_offset(Offset) andalso userdb_utils:check_limit(Limit) of
                 true ->
+                    #{offset => Offset, limit => Limit};
+                _ ->
                     error
             end;
         _ ->

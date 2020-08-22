@@ -64,10 +64,14 @@ terminate(_Reason, _Req, _State) ->
 get_user_and_password(Body) ->
     Decoded = userdb_utils:decode(Body),
     case Decoded of
-        #{<<"user">> := <<User/binary>>, <<"password">> := <<Password/binary>>} when
-        ((erlang:size(User) > 0) andalso (erlang:size(User) < 26)) andalso
-        ((erlang:size(Password) > 0) andalso (erlang:size(Password) < 26)) ->
-            {ok, User, Password};
+        #{<<"user">> := User, <<"password">> := Password} ->
+            case userdb_utils:check_user(User) andalso userdb_utils:check_password(Password) of
+                true ->
+                    {ok, User, Password};
+                _ ->
+                    lager:debug("Bad user or password", []),
+                    error
+            end;
         _ ->
             lager:debug("Bad json, Decoded:~n~p", [Decoded]),
             error

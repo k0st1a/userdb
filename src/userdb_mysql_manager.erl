@@ -154,55 +154,73 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 -spec handle(Msg :: userdb_mysql_manager_request(), State :: state()) -> Msg2 :: userdb_mysql_manager_response().
-handle(#registration_request{} = Body, #state{} = State) ->
+handle(#registration_request{user = User, password = Password} = Body, #state{} = State) ->
     lager:debug("handle, Body: ~p", [Body]),
-    Columns = lists:join(<<", ">>, [<<"user">>, <<"password">>]),
-    Values = lists:join(<<", ">>, [value(Value)|| Value <- [Body#registration_request.user, Body#registration_request.password]]),
-    Query = [<<"INSERT INTO user (">>, Columns, <<") VALUES (">>, Values, <<")">>],
-    %io:format(user, "-->Query:~p~n", [Query]),
-    case mysql:query(State#state.mysql_pid, Query) of
-        ok ->
-            #registration_response{success = true, description = <<"Success registration">>};
-        {error, {1062, _, _}} ->
-            #registration_response{success = false, description = <<"User already registered">>};
+    case userdb_utils:check_user(User) andalso userdb_utils:check_password(Password) of
+        true ->
+            Columns = lists:join(<<", ">>, [<<"user">>, <<"password">>]),
+            Values = lists:join(<<", ">>, [value(Value)|| Value <- [Body#registration_request.user, Body#registration_request.password]]),
+            Query = [<<"INSERT INTO user (">>, Columns, <<") VALUES (">>, Values, <<")">>],
+            %io:format(user, "-->Query:~p~n", [Query]),
+            Result = mysql:query(State#state.mysql_pid, Query),
+            %io:format(user, "-->Result:~p~n", [Result]),
+            case Result of
+                ok ->
+                    #registration_response{success = true, description = <<"Success registration">>};
+                {error, {1062, _, _}} ->
+                    #registration_response{success = false, description = <<"User already registered">>};
+                _ ->
+                    #registration_response{success = false, description = <<"Unsuccess registration">>}
+            end;
         _ ->
-            #registration_response{success = false, description = <<"Unsuccess registration">>}
+            lager:debug("Bad user or password", []),
+            #registration_response{success = false, description = <<"Bad user or password">>}
     end;
-handle(#authorization_request{} = Body, #state{} = State) ->
+handle(#authorization_request{user = User, password = Password} = Body, #state{} = State) ->
     lager:debug("handle, Body: ~p", [Body]),
-    Query = [
-        <<"SELECT EXISTS ( SELECT user FROM user WHERE `user`=">>,
-        value(Body#authorization_request.user), <<" AND `password`=">>,
-        value(Body#authorization_request.password), <<")">>
-    ],
-    %io:format(user, "-->Query:~p~n", [Query]),
-    Result = mysql:query(State#state.mysql_pid, Query),
-    %io:format(user, "-->Result:~p~n", [Result]),
-    case Result of
-        {ok, _ColumnNames, [[1]]} ->
-            #authorization_response{success = true, description = <<"Success authorization">>};
-        {ok, _, _} ->
-            #authorization_response{success = false, description = <<"Bad user or password">>};
+    case userdb_utils:check_user(User) andalso userdb_utils:check_password(Password) of
+        true ->
+            Query = [
+                <<"SELECT EXISTS ( SELECT user FROM user WHERE `user`=">>,
+                value(User), <<" AND `password`=">>,
+                value(Password), <<")">>
+            ],
+            %io:format(user, "-->Query:~p~n", [Query]),
+            Result = mysql:query(State#state.mysql_pid, Query),
+            %io:format(user, "-->Result:~p~n", [Result]),
+            case Result of
+                {ok, _ColumnNames, [[1]]} ->
+                    #authorization_response{success = true, description = <<"Success authorization">>};
+                {ok, _, _} ->
+                    #authorization_response{success = false, description = <<"Bad user or password">>};
+                _ ->
+                    #authorization_response{success = false, description = <<"Unsuccess authorization">>}
+            end;
         _ ->
-            #authorization_response{success = false, description = <<"Unsuccess authorization">>}
+            lager:debug("Bad user or password", []),
+            #authorization_response{success = false, description = <<"Bad user or password in request">>}
     end;
-handle(#get_users_list_request{offset = Offset, limit = Limit} = _Body, #state{} = State) when
-erlang:is_integer(Offset) andalso (Offset >= 0) andalso
-erlang:is_integer(Limit) andalso (Limit > 0) andalso (Limit =< 50) ->
+handle(#get_users_list_request{offset = Offset, limit = Limit} = _Body, #state{} = State) ->
     lager:debug("handle, Body: ~p", [_Body]),
-    %% Позже можно воспользоваться оптимизацией поиска https://habr.com/ru/post/217521/
-    Query = [
-        <<"SELECT `user` FROM `user` ORDER BY `user` LIMIT ">>,
-        value(Offset), <<", ">>, value(Limit)
-    ],
-    %io:format(user, "-------------->Query:~p<---------------------", [Query]),
-    Result = mysql:query(State#state.mysql_pid, Query),
-    %io:format(user, "-------------->Result:~p<---------------------", [Result]),
-    case Result of
-        {ok, _, [List]} ->
-            #get_users_list_response{success = true, list = List};
+    case userdb_utils:check_offset(Offset) andalso userdb_utils:check_limit(Limit) of
+        true ->
+            %% Позже можно воспользоваться оптимизацией поиска https://habr.com/ru/post/217521/
+            Query = [
+                <<"SELECT `user` FROM `user` ORDER BY `user` LIMIT ">>,
+                value(Offset), <<", ">>, value(Limit)
+            ],
+            %io:format(user, "-------------->Query:~p<---------------------", [Query]),
+            Result = mysql:query(State#state.mysql_pid, Query),
+            %io:format(user, "-------------->Result:~p<---------------------", [Result]),
+            case Result of
+                {ok, _, [List]} ->
+                    #get_users_list_response{success = true, list = List};
+                _ ->
+                    #get_users_list_response{success = false, description = <<"Unsuccess get users list request">>}
+            end;
         _ ->
-            #get_users_list_response{success = false, description = <<"Unsuccess get users list request">>}
+            lager:debug("Bad offset or limit", []),
+            #get_users_list_response{success = false, description = <<"Bad offset or limit">>}
     end.
 
 -spec value(Value :: binary() | integer()) -> Value2 :: binary().
