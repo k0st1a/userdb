@@ -23,6 +23,12 @@ handle_test_() ->
                 #get_users_list_response{success = false, description = <<"Bad offset or limit">>},
                 userdb_mysql_manager:handle(#get_users_list_request{}, {state, undefined})
             )
+        ]},
+        {"Bad user or password or new password in change_user_password_request", [
+            ?_assertEqual(
+                #change_user_password_response{success = false, description = <<"Bad user or password or new password">>},
+                userdb_mysql_manager:handle(#change_user_password_request{}, {state, undefined})
+            )
         ]}
     ].
 

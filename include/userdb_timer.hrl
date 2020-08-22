@@ -2,11 +2,13 @@
 -define(TIMER_REGISTRATION, timer_registration).
 -define(TIMER_AUTHORIZATION, timer_authorization).
 -define(TIMER_GET_USERS_LIST, timer_get_users_list).
+-define(TIMER_CHANGE_USER_PASSWORD, timer_change_user_password).
 -type timer_id() ::
     ?TIMER_MAKE_SESSION |
     ?TIMER_REGISTRATION |
     ?TIMER_AUTHORIZATION |
-    ?TIMER_GET_USERS_LIST.
+    ?TIMER_GET_USERS_LIST |
+    ?TIMER_CHANGE_USER_PASSWORD.
 
 -record(timer, {
     id :: timer_id()

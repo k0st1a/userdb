@@ -225,7 +225,32 @@ handle(#get_users_list_request{offset = Offset, limit = Limit} = _Body, #state{}
         _ ->
             lager:debug("Bad offset or limit", []),
             #get_users_list_response{success = false, description = <<"Bad offset or limit">>}
+    end;
+handle(#change_user_password_request{user = User, password = Password, new_password = NewPassword} = _Body, #state{} = State) ->
+    lager:debug("handle, Body: ~p", [_Body]),
+    case userdb_utils:check_user(User) andalso userdb_utils:check_password(Password) andalso userdb_utils:check_password(NewPassword) of
+        true ->
+            Query = [
+                <<"UPDATE `user` SET `password`=">>, value(NewPassword),
+                <<" WHERE `user`=">>, value(User), <<" AND `password`=">>, value(Password), <<";">>,
+                <<" SELECT ROW_COUNT();">>
+            ],
+            %io:format(user, "-------------->Query:~p<---------------------", [Query]),
+            Result = mysql:query(State#state.mysql_pid, Query),
+            %io:format(user, "-------------->Result:~p<---------------------", [Result]),
+            case Result of
+                {ok, _,[[1]]} ->
+                    #change_user_password_response{success = true, description = <<"User password changed successfully">>};
+                {ok, _,[[0]]} ->
+                    #change_user_password_response{success = false, description = <<"Wrong user password">>};
+                _ ->
+                    #change_user_password_response{success = false, description = <<"Error of change user password">>}
+            end;
+        _ ->
+            lager:debug("Bad offset or limit", []),
+            #change_user_password_response{success = false, description = <<"Bad user or password or new password">>}
     end.
+
 
 -spec value(Value :: binary() | integer()) -> Value2 :: binary().
 value(<<Value/binary>>) ->

@@ -35,12 +35,27 @@
 }).
 -type get_users_list_response() :: #get_users_list_response{}.
 
+-record(change_user_password_request, {
+    user :: binary(),
+    password :: binary(),
+    new_password :: binary()
+}).
+-type change_user_password_request() :: #change_user_password_request{}.
+
+-record(change_user_password_response, {
+    success :: boolean(),
+    description :: undefined | binary()
+}).
+-type change_user_password_response() :: #change_user_password_response{}.
+
 -type userdb_mysql_manager_request() ::
     registration_request() |
     authorization_request() |
-    get_users_list_request().
+    get_users_list_request() |
+    change_user_password_request().
 
 -type userdb_mysql_manager_response() ::
     registration_response() |
     authorization_response() |
-    get_users_list_response().
+    get_users_list_response() |
+    change_user_password_response().

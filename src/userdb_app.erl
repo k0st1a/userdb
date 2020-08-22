@@ -17,7 +17,8 @@ start(_StartType, _StartArgs) ->
             {'_', [
                     {"/registration", userdb_cowboy_handler_registration, undefined},
                     {"/authorization", userdb_cowboy_handler_authorization, undefined},
-                    {"/get_users_list", userdb_cowboy_handler_get_users_list, undefined}
+                    {"/get_users_list", userdb_cowboy_handler_get_users_list, undefined},
+                    {"/change_user_password", userdb_cowboy_handler_change_user_password, undefined}
             ]}
         ]),
     TransportOptions = [
