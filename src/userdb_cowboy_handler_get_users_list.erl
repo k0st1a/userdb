@@ -52,7 +52,7 @@ info(#userdb_msg{body = #get_users_list_response{} = Body, options = #{ref := Re
     end;
 info({timeout, TimerRef, #timer{id = ?TIMER_GET_USERS_LIST = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 400, <<"{\"description\":\"Get users list timeout\"}">>), State};
+    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Get users list timeout\"}">>), State};
 
 info(_Msg, Req, State) ->
     lager:debug("Info, skip Msg:~p", [_Msg]),

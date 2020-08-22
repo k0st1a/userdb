@@ -109,7 +109,7 @@ get_users_list_timeout(_Config) ->
     {_, Cookie} = lists:keyfind("set-cookie", 1, Headers),
     Data2 = <<"{\"offset\":0,\"limit\":50}">>,
     ?assertEqual(
-        {ok, {400, "{\"description\":\"Get users list timeout\"}"}},
+        {ok, {500, "{\"description\":\"Get users list timeout\"}"}},
         httpc:request(post, {"http://localhost:8080/get_users_list", [{"cookie", Cookie}], "application/json", Data2}, [], [{full_result, false}])
     ).
 
