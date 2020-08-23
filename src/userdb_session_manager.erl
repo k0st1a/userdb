@@ -7,6 +7,7 @@
 -include("userdb_session_manager_api.hrl").
 -include("userdb_msg.hrl").
 -include("userdb_session.hrl").
+-include("userdb_timer.hrl").
 
 %% API
 -export([
@@ -28,8 +29,13 @@
 -define(R2P(Record, Value), lists:zip(record_info(fields, Record), erlang:tl(erlang:tuple_to_list(Value)))).
 -define(DEFAULT_TTL, 60000).
 
+-type state_options() :: #{
+    session_expires => erlang:timestamp(),
+    session_timer_ref => erlang:reference()
+}.
 -record(state, {
-    session_ttl :: non_neg_integer()
+    session_ttl :: non_neg_integer(),
+    options = #{} :: state_options()
 }).
 -type state() :: #state{}.
 
@@ -85,15 +91,8 @@ find_session(Id) ->
 %% @end
 %%--------------------------------------------------------------------
 find(#session_filter{} = Filter) ->
-    lager:debug("Find, proplists: ~p", [?R2P(session_filter, Filter)]),
-    MCMatch =
-        #session{
-            id = Filter#session_filter.id,
-            user = Filter#session_filter.user,
-            expires = Filter#session_filter.expires,
-            _ = '_'
-        },
-    MatchSpec = [{MCMatch, Filter#session_filter.match_conditions, Filter#session_filter.match_return}],
+    lager:debug("Find, Filter:~p", [Filter]),
+    MatchSpec = make_match_spec(Filter),
     Found = ets:select(?MODULE, MatchSpec),
     lager:debug("Found: ~p", [Found]),
     Found.
@@ -169,11 +168,11 @@ handle_call(_Msg, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast(#userdb_msg{} = Msg, State) ->
     lager:debug("handle_cast, Msg:~p", [Msg]),
-    Result = handle(Msg#userdb_msg.body, State),
+    {Result, State2} = handle(Msg#userdb_msg.body, State),
     lager:debug("Result:~p", [Result]),
     WasSend = userdb_msg:reply(Msg, Result),
     lager:debug("WasSend:~p", [WasSend]),
-    {noreply, State};
+    {noreply, State2};
 handle_cast(_Msg, State) ->
     lager:warning("Unknown handle_cast, Msg:~p", [_Msg]),
     {noreply, State}.
@@ -188,7 +187,15 @@ handle_cast(_Msg, State) ->
 %%                                   {stop, Reason, State}
 %% @end
 %%--------------------------------------------------------------------
+handle_info({timeout, Ref, #timer{id = ?TIMER_SESSION = _Id}}, #state{options = #{session_timer_ref := Ref}} = State) ->
+    lager:debug("handle_info, fired timer, Id:~100p, Ref:~100p", [_Id, Ref]),
+    MatchSpec = make_match_spec(#session_filter{expires = '$1', match_conditions = [{'=<', '$1', {erlang:timestamp()}}], match_return = [true]}),
+    NumDeleted = ets:select_delete(?MODULE, MatchSpec),
+    lager:debug("NumDeleted:~100p", [NumDeleted]),
+    State2 = try_start_timer_session(State#state{options = maps:remove(session_timer_ref, State#state.options)}),
+    {noreply, State2};
 handle_info(_Info, State) ->
+    lager:debug("Skip handle_info, Info:~p", [_Info]),
     {noreply, State}.
 
 %%--------------------------------------------------------------------
@@ -226,8 +233,22 @@ check_session_ttl(Value) ->
     (Value > 0) andalso
     (Value =< 3600000).
 
+-spec make_match_spec(Filter :: session_filter()) -> MatchSpec :: ets:match_spec().
+make_match_spec(#session_filter{} = Filter) ->
+    lager:debug("Make match spec, proplists:~1000p", [?R2P(session_filter, Filter)]),
+    MatchPattern =
+        #session{
+            id = Filter#session_filter.id,
+            user = Filter#session_filter.user,
+            expires = Filter#session_filter.expires,
+            _ = '_'
+        },
+    MatchSpec = [{MatchPattern, Filter#session_filter.match_conditions, Filter#session_filter.match_return}],
+    lager:debug("MatchSpec: ~p", [MatchSpec]),
+    MatchSpec.
+
 -spec handle(Msg :: make_session_request(), State :: state()) -> Msg2 :: make_session_response().
-handle(#make_session_request{user_name = Name} = _Body, #state{session_ttl = TTL}) ->
+handle(#make_session_request{user_name = Name} = _Body, #state{session_ttl = TTL} = State) ->
     lager:debug("handle, Body: ~p", [_Body]),
     Id = erlang:list_to_binary(erlang:ref_to_list(erlang:make_ref())),
     Timestamp = erlang:timestamp(),
@@ -241,13 +262,13 @@ handle(#make_session_request{user_name = Name} = _Body, #state{session_ttl = TTL
             expires = Expires
         }
     ),
-    #make_session_response{session_id = Id}.
+    State2 = try_start_timer_session(State#state{options = maps:put(session_expires, Expires, State#state.options)}),
+    {#make_session_response{session_id = Id}, State2}.
 
 -spec new_timestampt(Timestamp :: erlang:timestamp(), MilliSeconds :: non_neg_integer()) -> Timestamp2 :: erlang:timestamp().
 new_timestampt(Timestamp, MilliSeconds) ->
     Ticks = timestamp_to_ticks(Timestamp) + MilliSeconds * 1000,
     ticks_to_timestamp(Ticks).
-
 
 -spec ticks_to_timestamp(Ticks :: non_neg_integer()) -> Timestamp :: erlang:timestamp().
 ticks_to_timestamp(Ticks) ->
@@ -256,3 +277,18 @@ ticks_to_timestamp(Ticks) ->
 -spec timestamp_to_ticks(Timestamp :: erlang:timestamp()) -> Ticks :: non_neg_integer().
 timestamp_to_ticks({MegaSeconds, Seconds, Microseconds}) ->
     MegaSeconds * 1000000000000 + Seconds * 1000000 + Microseconds.
+
+-spec try_start_timer_session(State :: state()) -> State2 :: state().
+try_start_timer_session(#state{options = #{session_timer_ref := _Ref}} = State) ->
+    lager:debug("Skip start timer session, Ref:~100p", [_Ref]),
+    State;
+try_start_timer_session(#state{options = #{session_expires := _} = Options, session_ttl = TTL} = State) ->
+    lager:debug("Start timer session, TTL:~1000p", [TTL]),
+    TimerRef = userdb_timer:start(?TIMER_SESSION, TTL),
+    lager:debug("TimerRef:~100p", [TimerRef]),
+    State#state{
+        options = maps:put(session_timer_ref, TimerRef, maps:remove(session_expires, Options))
+    };
+try_start_timer_session(State) ->
+    lager:debug("Skip start timer session", []),
+    State.
