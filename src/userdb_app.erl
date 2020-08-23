@@ -22,7 +22,7 @@ start(_StartType, _StartArgs) ->
             ]}
         ]),
     TransportOptions = [
-        {port, 8080}
+        {port, application:get_env(userdb, port, 8080)}
     ],
     ProtocolOptions = #{env => #{dispatch => Dispatch}},
     case cowboy:start_clear(userdb_http_listener, TransportOptions, ProtocolOptions) of
