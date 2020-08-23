@@ -11,7 +11,7 @@
 %% API
 -export([
     %% API
-    start_link/0,
+    start_link/1,
     %% Session manager API
     cast/1,
     find_session/1,
@@ -26,8 +26,12 @@
 ]).
 
 -define(R2P(Record, Value), lists:zip(record_info(fields, Record), erlang:tl(erlang:tuple_to_list(Value)))).
+-define(DEFAULT_TTL, 60000).
 
--record(state, {}).
+-record(state, {
+    session_ttl :: non_neg_integer()
+}).
+-type state() :: #state{}.
 
 %%%===================================================================
 %%% API
@@ -40,8 +44,8 @@
 %% @spec start_link() -> {ok, Pid} | ignore | {error, Error}
 %% @end
 %%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(Args) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %%--------------------------------------------------------------------
 %% @doc
@@ -57,15 +61,18 @@ cast(Body) ->
 %% @doc
 %% Find session
 %%
-%% @spec find_session(Filter :: session_filter()) -> list().
+%% @spec find_session(Id :: binary() -> list().
 %% @end
 %%--------------------------------------------------------------------
 find_session(Id) ->
-    lager:debug("Find session, Id: ~p", [Id]),
+    Timestamp = erlang:timestamp(),
+    lager:debug("Find session, Id:~100p, Timestamp:~100p", [Id, Timestamp]),
     Filter =
         #session_filter{
             id = Id,
             user = '$1',
+            expires = '$2',
+            match_conditions = [{'>', '$2', {Timestamp}}],
             match_return = ['$1']
         },
     find(Filter).
@@ -83,6 +90,7 @@ find(#session_filter{} = Filter) ->
         #session{
             id = Filter#session_filter.id,
             user = Filter#session_filter.user,
+            expires = Filter#session_filter.expires,
             _ = '_'
         },
     MatchSpec = [{MCMatch, Filter#session_filter.match_conditions, Filter#session_filter.match_return}],
@@ -105,8 +113,8 @@ find(#session_filter{} = Filter) ->
 %%                     {stop, Reason}
 %% @end
 %%--------------------------------------------------------------------
-init([]) ->
-    lager:info("Init", []),
+init(Args) ->
+    lager:info("Init, Args:~p", [Args]),
     ets:new(?MODULE, [
         ordered_set,
         protected,
@@ -114,7 +122,22 @@ init([]) ->
         {read_concurrency, true},
         {keypos, #session.id}
     ]),
-    {ok, #state{}}.
+    SessionTTL2 =
+        case lists:keyfind(session_ttl, 1, Args) of
+            {_, SessionTTL} ->
+                case check_session_ttl(SessionTTL) of
+                    true ->
+                        SessionTTL;
+                    _ ->
+                        ?DEFAULT_TTL
+                end;
+            _ ->
+                ?DEFAULT_TTL
+        end,
+    State = #state{
+        session_ttl = SessionTTL2
+    },
+    {ok, State}.
 
 %%--------------------------------------------------------------------
 %% @private
@@ -146,7 +169,7 @@ handle_call(_Msg, _From, State) ->
 %%--------------------------------------------------------------------
 handle_cast(#userdb_msg{} = Msg, State) ->
     lager:debug("handle_cast, Msg:~p", [Msg]),
-    Result = handle(Msg#userdb_msg.body),
+    Result = handle(Msg#userdb_msg.body, State),
     lager:debug("Result:~p", [Result]),
     WasSend = userdb_msg:reply(Msg, Result),
     lager:debug("WasSend:~p", [WasSend]),
@@ -197,16 +220,39 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
--spec handle(Msg :: make_session_request()) -> Msg2 :: make_session_response().
-handle(#make_session_request{} = Body) ->
-    lager:debug("handle, Body: ~p", [Body]),
-    SessionId = erlang:list_to_binary(erlang:ref_to_list(erlang:make_ref())),
-    lager:debug("SessionId", [SessionId]),
+-spec check_session_ttl(Value :: non_neg_integer()) -> boolean().
+check_session_ttl(Value) ->
+    erlang:is_integer(Value) andalso
+    (Value > 0) andalso
+    (Value =< 3600000).
+
+-spec handle(Msg :: make_session_request(), State :: state()) -> Msg2 :: make_session_response().
+handle(#make_session_request{user_name = Name} = _Body, #state{session_ttl = TTL}) ->
+    lager:debug("handle, Body: ~p", [_Body]),
+    Id = erlang:list_to_binary(erlang:ref_to_list(erlang:make_ref())),
+    Timestamp = erlang:timestamp(),
+    Expires = new_timestampt(Timestamp, TTL),
+    lager:debug("Name:~100p, Id:~100p, Timestamp:~1000p, TTL:~1000p, Expires:~100p", [Name, Id, Timestamp, TTL, Expires]),
     ets:insert(
         ?MODULE,
         #session{
-            id = SessionId,
-            user = Body#make_session_request.user_name
+            id = Id,
+            user = Name,
+            expires = Expires
         }
     ),
-    #make_session_response{session_id = SessionId}.
+    #make_session_response{session_id = Id}.
+
+-spec new_timestampt(Timestamp :: erlang:timestamp(), MilliSeconds :: non_neg_integer()) -> Timestamp2 :: erlang:timestamp().
+new_timestampt(Timestamp, MilliSeconds) ->
+    Ticks = timestamp_to_ticks(Timestamp) + MilliSeconds * 1000,
+    ticks_to_timestamp(Ticks).
+
+
+-spec ticks_to_timestamp(Ticks :: non_neg_integer()) -> Timestamp :: erlang:timestamp().
+ticks_to_timestamp(Ticks) ->
+    {Ticks div 1000000000000, Ticks rem 1000000000000 div 1000000, Ticks rem 1000000}.
+
+-spec timestamp_to_ticks(Timestamp :: erlang:timestamp()) -> Ticks :: non_neg_integer().
+timestamp_to_ticks({MegaSeconds, Seconds, Microseconds}) ->
+    MegaSeconds * 1000000000000 + Seconds * 1000000 + Microseconds.

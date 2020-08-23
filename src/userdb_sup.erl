@@ -34,7 +34,7 @@ init([]) ->
     ChildSpecs = [
         #{
             id => session_manager,
-            start => {userdb_session_manager, start_link, []}
+            start => {userdb_session_manager, start_link, [application:get_all_env(userdb)]}
         },
         #{
             id => mysql_manager,

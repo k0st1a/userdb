@@ -138,7 +138,7 @@ success_authorization(_Config) ->
         cookie:name(Cookie)
     ),
     SessionId = cookie:value(Cookie),
-    ?assertEqual(
+    ?assertMatch(
         [
             #session{id = SessionId, user = <<"it is user">>}
         ],

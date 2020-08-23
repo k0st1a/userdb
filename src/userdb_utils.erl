@@ -85,3 +85,4 @@ find_session(Req) ->
             lager:debug("Not found session_id", []),
             {error, <<"Not found session_id in cookie">>}
     end.
+
