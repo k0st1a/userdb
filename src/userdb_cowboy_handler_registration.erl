@@ -34,13 +34,14 @@ init(Req, _) ->
             lager:debug("Cast registration_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
             {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef}};
         _ ->
-            {ok, userdb_utils:reply(Req2, 400, <<"{\"description\":\"Bad registration request\"}">>), #state{}}
+            JSON = jsx:encode([{<<"description">>, <<"Bad registration request">>}]),
+            {ok, userdb_utils:reply(Req2, 400, JSON), #state{}}
     end.
 
 info(#userdb_msg{body = #registration_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
     lager:debug("Info, Msg:~p", [Msg]),
     userdb_timer:cancel(State#state.timer_ref),
-    JSON = <<"{\"description\":\"", (Body#registration_response.description)/binary, "\"}">>,
+    JSON = jsx:encode([{<<"description">>, Body#registration_response.description}]),
     case Body#registration_response.success of
         true ->
             {stop, userdb_utils:reply(Req, 200, JSON), State};
@@ -49,7 +50,8 @@ info(#userdb_msg{body = #registration_response{} = Body, options = #{ref := Ref}
     end;
 info({timeout, TimerRef, #timer{id = ?TIMER_REGISTRATION = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Registration timeout\"}">>), State};
+    JSON = jsx:encode([{<<"description">>, <<"Registration timeout">>}]),
+    {stop, userdb_utils:reply(Req, 500, JSON), State};
 
 info(_Msg, Req, State) ->
     lager:debug("Info, skip Msg:~p", [_Msg]),

@@ -166,7 +166,9 @@ handle(#registration_request{user = User, password = Password} = Body, #state{} 
             Values = lists:join(<<", ">>, [value(Value)|| Value <- [Body#registration_request.user, Body#registration_request.password]]),
             Query = [<<"INSERT INTO user (">>, Columns, <<") VALUES (">>, Values, <<")">>],
             %io:format(user, "-->Query:~p~n", [Query]),
+            lager:debug("Query:~p", [Query]),
             Result = mysql:query(State#state.mysql_pid, Query),
+            lager:debug("Result:~p", [Result]),
             %io:format(user, "-->Result:~p~n", [Result]),
             case Result of
                 ok ->
@@ -190,7 +192,9 @@ handle(#authorization_request{user = User, password = Password} = Body, #state{}
                 value(Password), <<")">>
             ],
             %io:format(user, "-->Query:~p~n", [Query]),
+            lager:debug("Query:~p", [Query]),
             Result = mysql:query(State#state.mysql_pid, Query),
+            lager:debug("Result:~p", [Result]),
             %io:format(user, "-->Result:~p~n", [Result]),
             case Result of
                 {ok, _ColumnNames, [[1]]} ->
@@ -214,11 +218,14 @@ handle(#get_users_list_request{offset = Offset, limit = Limit} = _Body, #state{}
                 value(Offset), <<", ">>, value(Limit)
             ],
             %io:format(user, "-------------->Query:~p<---------------------", [Query]),
+            lager:debug("Query:~p", [Query]),
             Result = mysql:query(State#state.mysql_pid, Query),
             %io:format(user, "-------------->Result:~p<---------------------", [Result]),
+            lager:debug("Result:~p", [Result]),
             case Result of
-                {ok, _, [List]} ->
-                    #get_users_list_response{success = true, list = List};
+                {ok, _, List} ->
+                    #get_users_list_response{success = true, list = lists:append(List)};
+                    %#get_users_list_response{success = true, list = List};
                 _ ->
                     #get_users_list_response{success = false, description = <<"Unsuccess get users list request">>}
             end;
@@ -236,7 +243,9 @@ handle(#change_user_password_request{user = User, password = Password, new_passw
                 <<" SELECT ROW_COUNT();">>
             ],
             %io:format(user, "-------------->Query:~p<---------------------", [Query]),
+            lager:debug("Query:~p", [Query]),
             Result = mysql:query(State#state.mysql_pid, Query),
+            lager:debug("Result:~p", [Result]),
             %io:format(user, "-------------->Result:~p<---------------------", [Result]),
             case Result of
                 {ok, _,[[1]]} ->
@@ -253,13 +262,13 @@ handle(#change_user_password_request{user = User, password = Password, new_passw
 
 
 -spec value(Value :: binary() | integer()) -> Value2 :: binary().
-value(<<Value/binary>>) ->
+value(Value) when erlang:is_binary(Value) ->
     <<"'", (escape(Value))/binary, "'">>;
 value(Value) when erlang:is_integer(Value) ->
     erlang:integer_to_binary(Value).
 
 -spec escape(Value :: binary()) -> Value2 :: binary().
-escape(<<Value/binary>>) ->
+escape(Value) when erlang:is_binary(Value) ->
     binary:replace(
         Value,
         [

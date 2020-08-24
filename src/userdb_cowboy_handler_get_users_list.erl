@@ -32,11 +32,13 @@ init(Req, _) ->
                     lager:debug("Cast get_user_list_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
                     {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef}};
                 _ ->
-                    {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"Bad offset or limit\"}">>), #state{}}
+                    JSON = jsx:encode([{<<"description">>, <<"Bad offset or limit">>}]),
+                    {ok, userdb_utils:reply(Req, 400, JSON), #state{}}
             end;
         {error, Description} ->
             lager:debug("Description:~p", [Description]),
-            {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"", Description/binary, "\"}">>), #state{}}
+            JSON = jsx:encode([{<<"description">>, Description}]),
+            {ok, userdb_utils:reply(Req, 400, JSON), #state{}}
     end.
 
 info(#userdb_msg{body = #get_users_list_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
@@ -44,7 +46,7 @@ info(#userdb_msg{body = #get_users_list_response{} = Body, options = #{ref := Re
     userdb_timer:cancel(State#state.timer_ref),
     case Body#get_users_list_response.success of
         true ->
-            JSON = <<"{\"list\":\"", (unicode:characters_to_binary(lists:join(<<",">>, Body#get_users_list_response.list)))/binary, "\"}">>,
+            JSON = jsx:encode([{<<"list">>, Body#get_users_list_response.list}]),
             {stop, userdb_utils:reply(Req, 200, JSON), State};
         _ ->
             JSON = <<"{\"description\":\"", (Body#get_users_list_response.description)/binary, "\"}">>,
@@ -52,7 +54,8 @@ info(#userdb_msg{body = #get_users_list_response{} = Body, options = #{ref := Re
     end;
 info({timeout, TimerRef, #timer{id = ?TIMER_GET_USERS_LIST = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Get users list timeout\"}">>), State};
+    JSON = jsx:encode([{<<"description">>, <<"Get users list timeout">>}]),
+    {stop, userdb_utils:reply(Req, 500, JSON), State};
 
 info(_Msg, Req, State) ->
     lager:debug("Info, skip Msg:~p", [_Msg]),

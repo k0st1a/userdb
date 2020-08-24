@@ -33,17 +33,19 @@ init(Req, _) ->
                     {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef}};
                 {error, Description} ->
                     lager:debug("Description:~p", [Description]),
-                    {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"", Description/binary, "\"}">>), #state{}}
+                    JSON = jsx:encode([{<<"description">>, Description}]),
+                    {ok, userdb_utils:reply(Req, 400, JSON), #state{}}
             end;
         {error, Description} ->
             lager:debug("Description:~p", [Description]),
-            {ok, userdb_utils:reply(Req, 400, <<"{\"description\":\"", Description/binary, "\"}">>), #state{}}
+            JSON = jsx:encode([{<<"description">>, Description}]),
+            {ok, userdb_utils:reply(Req, 400, JSON), #state{}}
     end.
 
 info(#userdb_msg{body = #change_user_password_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
     lager:debug("Info, Msg:~p", [Msg]),
     userdb_timer:cancel(State#state.timer_ref),
-    JSON = <<"{\"description\":\"", (Body#change_user_password_response.description)/binary, "\"}">>,
+    JSON = jsx:encode([{<<"description">>, Body#change_user_password_response.description}]),
     case Body#change_user_password_response.success of
         true ->
             {stop, userdb_utils:reply(Req, 200, JSON), State};
@@ -52,7 +54,8 @@ info(#userdb_msg{body = #change_user_password_response{} = Body, options = #{ref
     end;
 info({timeout, TimerRef, #timer{id = ?TIMER_CHANGE_USER_PASSWORD = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Change user password timeout\"}">>), State};
+    JSON = jsx:encode([{<<"description">>, <<"Change user password timeout">>}]),
+    {stop, userdb_utils:reply(Req, 500, JSON), State};
 
 info(_Msg, Req, State) ->
     lager:debug("Info, skip Msg:~p", [_Msg]),

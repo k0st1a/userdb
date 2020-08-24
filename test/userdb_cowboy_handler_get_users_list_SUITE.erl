@@ -149,6 +149,6 @@ success_get_users_list_request(_Config) ->
     {_, Cookie} = lists:keyfind("set-cookie", 1, Headers),
     Data2 = <<"{\"offset\":0,\"limit\":50}">>,
     ?assertEqual(
-        {ok,{200,"{\"list\":\"it is user\"}"}},
+        {ok,{200,"{\"list\":[\"it is user\"]}"}},
         httpc:request(post, {"http://localhost:8080/get_users_list", [{"cookie", Cookie}], "application/json", Data2}, [], [{full_result, false}])
     ).

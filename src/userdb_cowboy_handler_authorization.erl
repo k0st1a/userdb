@@ -31,7 +31,8 @@ init(Req, _) ->
             lager:debug("Cast authorization_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
             {cowboy_loop, Req2, #state{request_ref = RequestRef, timer_ref = TimerRef, user = User}};
         _ ->
-            {ok, userdb_utils:reply(Req2, 400, <<"{\"description\":\"Bad authorization request\"}">>), #state{}}
+            JSON = jsx:encode([{<<"description">>, <<"Bad authorization request">>}]),
+            {ok, userdb_utils:reply(Req2, 400, JSON), #state{}}
     end.
 
 info(#userdb_msg{body = #authorization_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref, user = User} = State) ->
@@ -44,21 +45,24 @@ info(#userdb_msg{body = #authorization_response{} = Body, options = #{ref := Ref
             lager:debug("Cast make_session_request, User:~100p, RequestRef:~100p, TimerRef:~100p", [User, RequestRef, TimerRef]),
             {ok, Req, State#state{request_ref = RequestRef, timer_ref = TimerRef}};
         _ ->
-            JSON = <<"{\"description\":\"", (Body#authorization_response.description)/binary, "\"}">>,
+            JSON = jsx:encode([{<<"description">>, Body#authorization_response.description}]),
             {stop, userdb_utils:reply(Req, 400, JSON), State}
     end;
 info({timeout, TimerRef, #timer{id = ?TIMER_AUTHORIZATION = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Authorization timeout\"}">>), State};
+    JSON = jsx:encode([{<<"description">>, <<"Authorization timeout">>}]),
+    {stop, userdb_utils:reply(Req, 500, JSON), State};
 
 info(#userdb_msg{body = #make_session_response{} = Body, options = #{ref := Ref}} = Msg, Req, #state{request_ref = Ref} = State) ->
     lager:debug("Info, Msg:~p", [Msg]),
     Req2 = cowboy_req:set_resp_cookie(<<"session_id">>, Body#make_session_response.session_id, Req),
     userdb_timer:cancel(State#state.timer_ref),
-    {stop, userdb_utils:reply(Req2, 200, <<"{\"description\":\"Success authorization\"}">>), State};
+    JSON = jsx:encode([{<<"description">>, <<"Success authorization">>}]),
+    {stop, userdb_utils:reply(Req2, 200, JSON), State};
 info({timeout, TimerRef, #timer{id = ?TIMER_MAKE_SESSION = _Id}}, Req, #state{timer_ref = TimerRef} = State) ->
     lager:debug("Info, Fired timer, Id:~100p, TimerRef:~100p", [_Id, TimerRef]),
-    {stop, userdb_utils:reply(Req, 500, <<"{\"description\":\"Make session timeout\"}">>), State};
+    JSON = jsx:encode([{<<"description">>, <<"Make session timeout">>}]),
+    {stop, userdb_utils:reply(Req, 500, JSON), State};
 
 info(_Msg, Req, State) ->
     lager:debug("Info, skip Msg:~p", [_Msg]),
