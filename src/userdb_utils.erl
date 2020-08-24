@@ -13,12 +13,13 @@
     find_session/1
 ]).
 
--spec decode(Body :: term()) -> Decoded :: map() | error.
+-spec decode(Body :: term()) -> Decoded :: map() | {error, Type :: atom(), Error :: atom(), Stacktrace :: term()}.
 decode(Body) ->
     try
         jsx:decode(Body, [return_maps])
-    catch _:_ ->
-        error
+    catch
+        Type:Error:Stacktrace ->
+            {error, Type, Error, Stacktrace}
     end.
 
 -spec read_body(Req :: cowboy_req:req()) -> {ok, Data :: binary(), Req2 :: cowboy_req:req()}.
